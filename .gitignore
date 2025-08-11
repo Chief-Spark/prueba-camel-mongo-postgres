@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# IntelliJ / JetBrains
+.idea/
+*.iml
+out/
+
+# Maven
+**/target/
+
+# Logs y temporales
+*.log
+*.tmp
+*.swp
+
+# Entornos/secretos (si los llegas a usar)
+.env
