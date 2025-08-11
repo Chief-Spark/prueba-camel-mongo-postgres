@@ -1,0 +1,208 @@
+
+============ INICIO | Proyecto: /Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres | Log: /Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres/evidencia/run_20250811_152441.log ============
+
+$ date
+Mon Aug 11 15:24:41 -05 2025
+
+============ Arrancando Docker Desktop ============
+
+$ open -ga Docker
+
+============ Esperando a que el daemon de Docker esté listo... ============
+
+Docker OK
+
+============ Levantando SOLO Mongo ============
+
+$ docker compose up -d mongo
+time="2025-08-11T15:24:41-05:00" level=warning msg="/Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container mongo  Running
+
+============ Esperando a Mongo... ============
+
+Mongo listo
+
+============ Mongo | Conteo inicial y muestra de 3 docs ============
+
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.countDocuments()'
+10
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.find().limit(3).toArray()'
+[
+  {
+    _id: ObjectId('6899d6b65fd764db5e74e39a'),
+    nombre: 'Ana Pérez',
+    correo: 'ana.perez@nuevo.com',
+    direccion: { calle: 'Calle 10 #5-12', ciudad: 'Bogotá', pais: 'Colombia' }
+  },
+  {
+    _id: ObjectId('6899d6b65fd764db5e74e39b'),
+    nombre: 'Luis Gómez',
+    correo: 'luis@example.com',
+    direccion: { calle: 'Av. Reforma 123', ciudad: 'CDMX', pais: 'México' }
+  },
+  {
+    _id: ObjectId('6899d6b65fd764db5e74e39c'),
+    nombre: 'María López',
+    correo: 'maria@example.com',
+    direccion: { calle: 'Gran Vía 45', ciudad: 'Madrid', pais: 'España' }
+  }
+]
+
+============ Mongo | Insertar 2 clientes nuevos ============
+
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.insertMany([{nombre:"Diego Torres",correo:"diego.torres@example.com",direccion:{calle:"Av. Providencia 100",ciudad:"Santiago",pais:"Chile"}},{nombre:"Laura Méndez",correo:"laura.mendez@example.com",direccion:{calle:"Calle 80 #10-20",ciudad:"Bogotá",pais:"Colombia"}}])'
+{
+  acknowledged: true,
+  insertedIds: {
+    '0': ObjectId('689a518a2ed63e430b74e39a'),
+    '1': ObjectId('689a518a2ed63e430b74e39b')
+  }
+}
+
+============ Mongo | Actualizar correo de Ana Pérez ============
+
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.updateOne({nombre:"Ana Pérez"},{$set:{correo:"ana.perez@nuevo.com"}})'
+{
+  acknowledged: true,
+  insertedId: null,
+  matchedCount: 1,
+  modifiedCount: 0,
+  upsertedCount: 0
+}
+
+============ Mongo | Estado tras cambios (conteo y top 5 por país=Colombia) ============
+
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.countDocuments()'
+12
+$ docker exec -i mongo mongosh demo --quiet --eval 'db.clientes.find({"direccion.pais":"Colombia"},{_id:0,nombre:1,correo:1,"direccion.ciudad":1}).limit(5).toArray()'
+[
+  {
+    nombre: 'Ana Pérez',
+    correo: 'ana.perez@nuevo.com',
+    direccion: { ciudad: 'Bogotá' }
+  },
+  {
+    nombre: 'Sofía Ramírez',
+    correo: 'sofia@example.com',
+    direccion: { ciudad: 'Medellín' }
+  },
+  {
+    nombre: 'Laura Méndez',
+    correo: 'laura.mendez@example.com',
+    direccion: { ciudad: 'Bogotá' }
+  }
+]
+
+============ Levantando Postgres ============
+
+$ docker compose up -d postgres
+time="2025-08-11T15:24:43-05:00" level=warning msg="/Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container postgres  Running
+
+============ Esperando a Postgres... ============
+
+Postgres listo
+
+============ Postgres | Ver tablas ============
+
+$ docker exec -i postgres psql -U demo -d demo -c '\dt'
+          List of relations
+ Schema |    Name     | Type  | Owner 
+--------+-------------+-------+-------
+ public | clientes    | table | demo
+ public | direcciones | table | demo
+(2 rows)
+
+
+============ Compilando app (JAR 'shaded') ============
+
+$ mvn -q -DskipTests clean package
+
+============ Ejecutando migración (timer→mongo→split→sql) con timeout 20s ============
+
+⚠️ No hay (g)timeout instalado; instala coreutils: brew install coreutils
+Ejecutando 15s y luego matando proceso…
+[main] INFO org.mongodb.driver.client - MongoClient with metadata {"driver": {"name": "mongo-java-driver|sync", "version": "4.8.1"}, "os": {"type": "Darwin", "name": "Mac OS X", "architecture": "aarch64", "version": "15.6"}, "platform": "Java/Homebrew/17.0.16+0"} created with settings MongoClientSettings{readPreference=primary, writeConcern=WriteConcern{w=null, wTimeout=null ms, journal=null}, retryWrites=true, retryReads=true, readConcern=ReadConcern{level=null}, credential=null, streamFactoryFactory=null, commandListeners=[], codecRegistry=ProvidersCodecRegistry{codecProviders=[ValueCodecProvider{}, BsonValueCodecProvider{}, DBRefCodecProvider{}, DBObjectCodecProvider{}, DocumentCodecProvider{}, CollectionCodecProvider{}, IterableCodecProvider{}, MapCodecProvider{}, GeoJsonCodecProvider{}, GridFSFileCodecProvider{}, Jsr310CodecProvider{}, JsonObjectCodecProvider{}, BsonCodecProvider{}, EnumCodecProvider{}, com.mongodb.Jep395RecordCodecProvider@2641e737]}, clusterSettings={hosts=[localhost:27017], srvServiceName=mongodb, mode=SINGLE, requiredClusterType=UNKNOWN, requiredReplicaSetName='null', serverSelector='null', clusterListeners='[]', serverSelectionTimeout='30000 ms', localThreshold='30000 ms'}, socketSettings=SocketSettings{connectTimeoutMS=10000, readTimeoutMS=0, receiveBufferSize=0, sendBufferSize=0}, heartbeatSocketSettings=SocketSettings{connectTimeoutMS=10000, readTimeoutMS=10000, receiveBufferSize=0, sendBufferSize=0}, connectionPoolSettings=ConnectionPoolSettings{maxSize=100, minSize=0, maxWaitTimeMS=120000, maxConnectionLifeTimeMS=0, maxConnectionIdleTimeMS=0, maintenanceInitialDelayMS=0, maintenanceFrequencyMS=60000, connectionPoolListeners=[], maxConnecting=2}, serverSettings=ServerSettings{heartbeatFrequencyMS=10000, minHeartbeatFrequencyMS=500, serverListeners='[]', serverMonitorListeners='[]'}, sslSettings=SslSettings{enabled=false, invalidHostNameAllowed=false, context=null}, applicationName='null', compressorList=[], uuidRepresentation=UNSPECIFIED, serverApi=null, autoEncryptionSettings=null, contextProvider=null}
+[cluster-ClusterId{value='689a518dcce2d3099905e8c5', description='null'}-localhost:27017] INFO org.mongodb.driver.cluster - Monitor thread successfully connected to server with description ServerDescription{address=localhost:27017, type=STANDALONE, state=CONNECTED, ok=true, minWireVersion=0, maxWireVersion=17, maxDocumentSize=16777216, logicalSessionTimeoutMinutes=30, roundTripTimeNanos=7476917}
+[main] INFO org.apache.camel.impl.engine.DefaultAutowiredLifecycleStrategy - Autowired property: mongoConnection on component: mongodb as exactly one instance of type: com.mongodb.client.MongoClient (com.mongodb.client.internal.MongoClientImpl) found in the registry
+[main] INFO org.apache.camel.impl.engine.DefaultAutowiredLifecycleStrategy - Autowired property: dataSource on component: sql as exactly one instance of type: javax.sql.DataSource (org.postgresql.ds.PGSimpleDataSource) found in the registry
+[main] INFO org.apache.camel.impl.engine.AbstractCamelContext - Apache Camel 3.22.2 (camel-1) is starting
+[main] INFO org.apache.camel.component.mongodb.MongoDbEndpoint - Initialising MongoDb endpoint: mongodb://client?collection=clientes&database=demo&operation=findAll
+[main] INFO org.apache.camel.impl.engine.AbstractCamelContext - Routes startup (started:1)
+[main] INFO org.apache.camel.impl.engine.AbstractCamelContext -     Started mongo-to-postgres (timer://runOnce)
+[main] INFO org.apache.camel.impl.engine.AbstractCamelContext - Apache Camel 3.22.2 (camel-1) started in 69ms (build:10ms init:51ms start:8ms)
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=15}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=2}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=3}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=4}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=5}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=6}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=7}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=8}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=9}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=10}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=45}]
+[Camel (camel-1) thread #1 - timer://runOnce] INFO mongo-to-postgres - Upsert OK -> resultado: [{upsert_cliente=46}]
+
+============ Postgres | Conteos ============
+
+$ docker exec -i postgres psql -U demo -d demo -c 'select count(*) as clientes from clientes;'
+ clientes 
+----------
+       13
+(1 row)
+
+$ docker exec -i postgres psql -U demo -d demo -c 'select count(*) as direcciones from direcciones;'
+ direcciones 
+-------------
+          13
+(1 row)
+
+
+============ Postgres | Join de muestra (top 10) ============
+
+$ docker exec -i postgres psql -U demo -d demo -c "select c.id,c.nombre,c.correo,d.calle,d.ciudad,d.pais from clientes c join direcciones d on d.cliente_id=c.id order by c.id limit 10;"
+ id |     nombre      |       correo       |       calle        |     ciudad      |   pais    
+----+-----------------+--------------------+--------------------+-----------------+-----------
+  1 | Ana P.          | ana@example.com    | Calle 11 #6-20     | Bogotá          | Colombia
+  2 | Luis Gómez      | luis@example.com   | Av. Reforma 123    | CDMX            | México
+  3 | María López     | maria@example.com  | Gran Vía 45        | Madrid          | España
+  4 | John Smith      | john@example.com   | 742 Evergreen      | Springfield     | USA
+  5 | Sofía Ramírez   | sofia@example.com  | Cra 7 #12-80       | Medellín        | Colombia
+  6 | Pedro Sánchez   | pedro@example.com  | Av. Libertador 500 | Buenos Aires    | Argentina
+  7 | Lucía Fernández | lucia@example.com  | Rua Augusta 100    | São Paulo       | Brasil
+  8 | Carlos Ruiz     | carlos@example.com | Av. Arequipa 200   | Lima            | Perú
+  9 | Elena Petrova   | elena@example.com  | Nevsky 1           | San Petersburgo | Rusia
+ 10 | Marta Díaz      | marta@example.com  | C/ Colón 8         | Valencia        | España
+(10 rows)
+
+
+============ Postgres | clientes_por_pais('Colombia') ============
+
+$ docker exec -i postgres psql -U demo -d demo -c "select * from clientes_por_pais('Colombia');"
+ id |    nombre     |          correo          |      calle      |  ciudad  |   pais   
+----+---------------+--------------------------+-----------------+----------+----------
+  1 | Ana P.        | ana@example.com          | Calle 11 #6-20  | Bogotá   | Colombia
+ 15 | Ana Pérez     | ana.perez@nuevo.com      | Calle 10 #5-12  | Bogotá   | Colombia
+  5 | Sofía Ramírez | sofia@example.com        | Cra 7 #12-80    | Medellín | Colombia
+ 46 | Laura Méndez  | laura.mendez@example.com | Calle 80 #10-20 | Bogotá   | Colombia
+(4 rows)
+
+
+============ Bajando servicios (sin -v para conservar datos) ============
+
+$ docker compose down
+time="2025-08-11T15:25:01-05:00" level=warning msg="/Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container mongo  Stopping
+ Container postgres  Stopping
+ Container postgres  Stopped
+ Container postgres  Removing
+ Container postgres  Removed
+ Container mongo  Stopped
+ Container mongo  Removing
+ Container mongo  Removed
+ Network prueba-camel-mongo-postgres_default  Removing
+ Network prueba-camel-mongo-postgres_default  Removed
+
+============ FIN | Evidencia generada en: /Users/franciscopena/Prueba_Camel/prueba-camel-mongo-postgres/evidencia/run_20250811_152441.log ============
+

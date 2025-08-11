@@ -16,3 +16,6 @@ out/
 
 # Entornos/secretos (si los llegas a usar)
 .env
+
+# Allow evidence logs
+!evidencia/*.log
